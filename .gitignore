@@ -1,0 +1,8 @@
+.venv/
+.venv_broken/
+.idea/
+output/
+test_artifacts/
+streamlit_*.log
+__pycache__/
+*.pyc

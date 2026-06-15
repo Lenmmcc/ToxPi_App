@@ -2,13 +2,13 @@ import streamlit as st
 
 
 st.set_page_config(
-    page_title="ToxApp 综合环境毒性评估平台",
+    page_title="ChemPriority 污染物综合筛选与评估平台",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("ToxApp 综合环境毒性评估平台")
+st.title("ChemPriority 污染物综合筛选与评估平台")
 st.caption("面向污染物优先控制筛选的数据获取、用途识别、ToxPi 计算与环境归趋预测工具。")
 st.markdown("---")
 
@@ -29,7 +29,7 @@ with entry_tab:
     with col_toxpi:
         st.markdown("### 2. ToxPi 毒性评估")
         st.write(
-            "保持原有 ToxPi 功能不变：上传毒性指标数据后完成归一化、加权评分、"
+            "上传实际毒性指标数据后自动识别数值型指标列，可选择本次纳入计算的指标，并完成归一化、加权评分、"
             "图表生成和排序稳定性分析。"
         )
         st.info("从左侧第二个页面进入“🧬 ToxPi毒性评估”。")
@@ -58,32 +58,22 @@ with data_tab:
     st.code("compound\nsmiles", language="text")
 
     st.subheader("ToxPi 输入表格")
-    st.write("Excel 文件需要包含一列 `compound`，以及以下 15 个毒性指标列。")
+    st.write("Excel 文件需要包含一列 `compound`，以及至少 1 个可转为数字的毒性指标列。系统会先识别候选指标，再由用户选择本次纳入 ToxPi 计算的指标。")
     st.code(
         "\n".join(
             [
+                "compound",
                 "carcinogenicity",
-                "A549",
                 "DILI",
-                "RPMI",
-                "eye_irritation",
                 "genotoxicity",
-                "hematotoxicity",
                 "hERG",
-                "liver_toxicity",
-                "nephrotoxicity",
-                "neurotoxicity",
-                "oral_cavity",
-                "ototoxicity",
-                "respiratory_toxicity",
-                "skin_sensitivity",
+                "...其他数值型毒性指标列",
             ]
         ),
         language="text",
     )
     st.write(
-        "系统也兼容部分常见原始列名，例如 `hERG Blockers-hERG`、`oral cavity`、"
-        "`Skin sensitivity`、`RPMI-8226` 等。"
+        "原来的 15 个毒性指标仍然兼容；如果 Excel 里只有其中一部分，或有新的数值型毒性项目，也可以直接计算。"
     )
 
     st.subheader("EPI Suite 输入表格")
@@ -96,7 +86,7 @@ with data_tab:
 with note_tab:
     st.subheader("线上使用方式")
     st.write(
-        "本应用按 Streamlit 网页部署设计。四个模块保持页面隔离：ADMETlab 数据整理、ToxPi 算分、"
+        "ChemPriority 按 Streamlit 网页部署设计。四个模块保持页面隔离：ADMETlab 数据整理、ToxPi 算分、"
         "EPI Suite 环境归趋预测、EPA/ECHA 用途查询分别维护，后续扩展时不需要改动原有 ToxPi 页面。"
     )
     st.write("部署前建议使用项目根目录的 `requirements.txt` 安装依赖，并确认服务器可以访问 EPA 和 ECHA 相关网页及接口。")

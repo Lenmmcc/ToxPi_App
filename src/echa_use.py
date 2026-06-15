@@ -694,7 +694,7 @@ def _get_text(path, params=None, base_url=DEFAULT_ECHA_BASE, timeout=90):
     url = _build_url(path, params=params, base_url=base_url)
     headers = {
         "Accept": "application/json, text/html, */*",
-        "User-Agent": "ToxApp ECHA use-query module",
+        "User-Agent": "ChemPriority ECHA use-query module",
     }
     request = urllib.request.Request(url, headers=headers)
     try:

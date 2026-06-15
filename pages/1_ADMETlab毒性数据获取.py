@@ -5,7 +5,7 @@ import streamlit as st
 
 
 st.set_page_config(
-    page_title="ADMETlab 毒性数据获取 - ToxApp",
+    page_title="ADMETlab 毒性数据获取 - ChemPriority",
     page_icon="🧪",
     layout="wide",
 )

@@ -14,10 +14,10 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from src.toxpi_calc import (  # noqa: E402
-    TOXIC_COLS,
     calculate_toxpi,
     generate_multi_toxpi_plot,
     generate_toxpi_bar_plot,
+    get_toxic_cols_from_frame,
     load_and_clean_data,
     run_sensitivity_analysis,
     safe_normalize_data,
@@ -25,7 +25,7 @@ from src.toxpi_calc import (  # noqa: E402
 
 
 st.set_page_config(
-    page_title="ToxPi 毒性评估系统 - ToxApp",
+    page_title="ToxPi 毒性评估系统 - ChemPriority",
     page_icon="🧬",
     layout="wide",
 )
@@ -38,6 +38,8 @@ def clear_cached_data():
         if key in {"cached_df", "cached_filename"}
         or key.startswith("group_comp_")
         or key.startswith("color_group_")
+        or key.startswith("saved_weight_")
+        or key.startswith("selected_toxic_cols_")
         or key.startswith("text_in_")
         or key.startswith("picker_g_")
     ]
@@ -64,7 +66,7 @@ def figure_to_pdf_bytes(fig):
     return buffer
 
 
-def build_excel_report(final_agg, seed_results, combined_summary, top_k):
+def build_excel_report(final_agg, seed_results, combined_summary, top_k, toxic_cols):
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         final_agg.to_excel(writer, sheet_name="ToxPi_Results", index=False)
@@ -91,6 +93,9 @@ def build_excel_report(final_agg, seed_results, combined_summary, top_k):
             )
 
         pd.DataFrame(metadata_rows).to_excel(writer, sheet_name="Simulation_Metadata", index=False)
+        pd.DataFrame({"toxicity_indicator": toxic_cols}).to_excel(
+            writer, sheet_name="Toxicity_Indicators", index=False
+        )
 
     buffer.seek(0)
     return buffer
@@ -128,7 +133,7 @@ st.sidebar.header("ToxPi 控制台")
 uploaded_file = st.sidebar.file_uploader(
     "1. 上传污染物原始数据 (Excel)",
     type=["xlsx", "xls"],
-    help="表格必须包含 compound 列以及 15 种环境毒性指标列。",
+    help="表格必须包含 compound 列，并至少包含 1 个可转为数字的毒性指标列；系统会按实际列自动调整。",
 )
 
 if uploaded_file is not None:
@@ -147,11 +152,46 @@ if "cached_df" in st.session_state:
         clear_cached_data()
         st.rerun()
 
+if "cached_df" not in st.session_state:
+    st.info("请先在左侧上传 Excel 数据文件。表格需要包含 `compound` 列，以及至少 1 个数值型毒性指标列。")
+    st.stop()
+
+cleaned_df = st.session_state["cached_df"]
+candidate_toxic_cols = get_toxic_cols_from_frame(cleaned_df)
+if not candidate_toxic_cols:
+    st.error("没有识别到可用于 ToxPi 的数值型毒性指标列。")
+    st.stop()
+
 st.sidebar.markdown("---")
-st.sidebar.markdown("**2. 毒性因子权重**")
+st.sidebar.markdown(f"**2. 选择本次参与计算的毒性指标**")
+selection_key = f"selected_toxic_cols_{st.session_state['cached_filename']}"
+if selection_key not in st.session_state:
+    st.session_state[selection_key] = candidate_toxic_cols
+
+toxic_cols = st.sidebar.multiselect(
+    "选择要纳入本次 ToxPi 计算的指标",
+    options=candidate_toxic_cols,
+    default=[col for col in st.session_state[selection_key] if col in candidate_toxic_cols],
+    help="默认选中所有识别到的数值型毒性列；你可以取消不想纳入本次计算的指标。",
+)
+st.session_state[selection_key] = toxic_cols
+
+if not toxic_cols:
+    st.error("请至少选择 1 个毒性指标参与 ToxPi 计算。")
+    st.stop()
+
+with st.sidebar.expander("查看可选毒性指标", expanded=False):
+    st.write("系统从 Excel 中识别到下列可转为数字的候选指标列：")
+    st.dataframe(pd.DataFrame({"candidate_toxicity_indicator": candidate_toxic_cols}), use_container_width=True)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown(f"**3. 毒性因子权重（{len(toxic_cols)} 个指标）**")
+with st.sidebar.expander("查看本次参与计算的毒性指标", expanded=False):
+    st.write("系统会使用下列已选择的指标参与 ToxPi 计算：")
+    st.dataframe(pd.DataFrame({"toxicity_indicator": toxic_cols}), use_container_width=True)
 
 user_weights = {}
-for col in TOXIC_COLS:
+for col in toxic_cols:
     state_key = f"saved_weight_{col}"
     default_val = 2.0 if col == "carcinogenicity" else 1.0
     if state_key not in st.session_state:
@@ -173,7 +213,7 @@ st.sidebar.markdown("---")
 if "saved_top_k" not in st.session_state:
     st.session_state["saved_top_k"] = 3
 user_top_k = st.sidebar.slider(
-    "3. 稳健频次统计阈值 (Top K)",
+    "4. 稳健频次统计阈值 (Top K)",
     min_value=1,
     max_value=50,
     value=st.session_state["saved_top_k"],
@@ -184,25 +224,20 @@ st.sidebar.markdown("---")
 if "saved_seed_text" not in st.session_state:
     st.session_state["saved_seed_text"] = "123, 42, 2026"
 seed_text_input = st.sidebar.text_input(
-    "4. 蒙特卡洛随机种子列表",
+    "5. 蒙特卡洛随机种子列表",
     value=st.session_state["saved_seed_text"],
     help="可输入多个整数，例如：123, 42, 2026。最多使用前 6 个不同种子。",
 )
 st.session_state["saved_seed_text"] = seed_text_input
 test_seeds = parse_seed_text(seed_text_input)
 
-if "cached_df" not in st.session_state:
-    st.info("请先在左侧上传 Excel 数据文件。")
-    st.stop()
-
 if weight_total <= 0:
     st.error("所有权重之和为 0。请至少为一个毒性指标设置大于 0 的权重。")
     st.stop()
 
 try:
-    cleaned_df = st.session_state["cached_df"]
-    normalized_df = safe_normalize_data(cleaned_df)
-    final_agg = calculate_toxpi(normalized_df, custom_weights=user_weights)
+    normalized_df = safe_normalize_data(cleaned_df, toxic_cols=toxic_cols)
+    final_agg = calculate_toxpi(normalized_df, custom_weights=user_weights, toxic_cols=toxic_cols)
 except Exception as exc:
     st.error(f"数据计算失败：{exc}")
     st.stop()
@@ -216,7 +251,7 @@ comp_to_group_map = {}
 chosen_bar_colors = {}
 
 st.sidebar.markdown("---")
-with st.sidebar.expander("5. 种类划定与分组配色", expanded=False):
+with st.sidebar.expander("6. 种类划定与分组配色", expanded=False):
     st.caption("组名一致的化合物会使用同一种柱状图颜色。")
 
     for idx, comp_name in enumerate(compounds_list):
@@ -255,6 +290,17 @@ with st.sidebar.expander("5. 种类划定与分组配色", expanded=False):
 tab1, tab2, tab3 = st.tabs(["数据审查", "ToxPi 图谱", "排序稳健性"])
 
 with tab1:
+    st.subheader("本次参与计算的毒性指标")
+    st.dataframe(
+        pd.DataFrame(
+            {
+                "toxicity_indicator": toxic_cols,
+                "weight": [user_weights[col] for col in toxic_cols],
+            }
+        ),
+        use_container_width=True,
+    )
+
     st.subheader("原始数据")
     st.dataframe(cleaned_df, use_container_width=True)
 
@@ -266,11 +312,21 @@ with tab1:
 
 with tab2:
     st.subheader("ToxPi 风玫瑰图")
-    fig_rose_beautified = generate_multi_toxpi_plot(final_agg, custom_weights=user_weights, beautify=True)
+    fig_rose_beautified = generate_multi_toxpi_plot(
+        final_agg,
+        custom_weights=user_weights,
+        beautify=True,
+        toxic_cols=toxic_cols,
+    )
     st.pyplot(fig_rose_beautified)
     rose_beautified_pdf = figure_to_pdf_bytes(fig_rose_beautified)
 
-    fig_rose_original = generate_multi_toxpi_plot(final_agg, custom_weights=user_weights, beautify=False)
+    fig_rose_original = generate_multi_toxpi_plot(
+        final_agg,
+        custom_weights=user_weights,
+        beautify=False,
+        toxic_cols=toxic_cols,
+    )
     rose_original_pdf = figure_to_pdf_bytes(fig_rose_original)
 
     col_a, col_b = st.columns(2)
@@ -322,6 +378,7 @@ with tab3:
             summary, stats, fig_cor, final_top_k = run_sensitivity_analysis(
                 final_agg,
                 custom_weights=user_weights,
+                toxic_cols=toxic_cols,
                 top_k=actual_top_k,
                 seed=seed,
             )
@@ -346,7 +403,7 @@ with tab3:
         st.subheader(f"多 seed 汇总表 (Top {actual_top_k})")
         st.dataframe(combined_summary, use_container_width=True)
 
-        excel_buffer = build_excel_report(final_agg, seed_results, combined_summary, actual_top_k)
+        excel_buffer = build_excel_report(final_agg, seed_results, combined_summary, actual_top_k, toxic_cols)
         st.download_button(
             label="下载完整计算报告 Excel",
             data=excel_buffer,

@@ -289,7 +289,7 @@ def build_input_zip(df):
             "Recommended workflow:",
             "1. Submit the SMILES list in EPI Suite or EPI Web Suite.",
             "2. Export or copy the EPI Suite result as CSV, Excel, TXT, or DOC.",
-            "3. Upload that result back to the ToxApp EPI Suite page for parsing.",
+            "3. Upload that result back to the ChemPriority EPI Suite page for parsing.",
         ]
     )
 
@@ -320,7 +320,7 @@ def call_epi_web_api(smiles, api_url=DEFAULT_EPI_WEB_API, timeout=90):
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "ToxApp EPISuite connector",
+            "User-Agent": "ChemPriority EPISuite connector",
         },
     )
     try:

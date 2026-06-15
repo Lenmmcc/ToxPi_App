@@ -26,7 +26,7 @@ from src.episuite_io import (  # noqa: E402
 
 
 st.set_page_config(
-    page_title="EPI Suite 环境归趋预测 - ToxApp",
+    page_title="EPI Suite 环境归趋预测 - ChemPriority",
     page_icon="🌊",
     layout="wide",
 )

@@ -385,7 +385,7 @@ def _pubchem_get_json(path, params=None, base_url=DEFAULT_PUBCHEM_BASE, timeout=
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "ToxApp identifier resolver",
+            "User-Agent": "ChemPriority identifier resolver",
         },
     )
     try:

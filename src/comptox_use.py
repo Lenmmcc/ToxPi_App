@@ -768,7 +768,7 @@ def _api_get_json(path, params=None, api_base=DEFAULT_API_BASE, api_key=None, ti
     key = DEFAULT_COMPTOX_API_KEY if api_key is None else api_key.strip()
     headers = {
         "Accept": "application/json, text/plain, */*",
-        "User-Agent": "ToxApp CompTox use-query module",
+        "User-Agent": "ChemPriority CompTox use-query module",
     }
     if key:
         headers["x-api-key"] = key
@@ -793,7 +793,7 @@ def _dashboard_get_html(path, timeout=45):
         url,
         headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "User-Agent": "ToxApp CompTox dashboard fallback",
+            "User-Agent": "ChemPriority CompTox dashboard fallback",
         },
     )
     try:

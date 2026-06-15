@@ -55,7 +55,7 @@ def show_dataframe(df):
 
 
 st.set_page_config(
-    page_title="化合物用途查询 - ToxApp",
+    page_title="化合物用途查询 - ChemPriority",
     page_icon="🔎",
     layout="wide",
 )
